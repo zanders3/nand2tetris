@@ -1,0 +1,50 @@
+
+CHIP InstructionDecoder {
+
+    IN  instruction[16]; // Instruction for execution
+
+    OUT writeA,		 	 // Write A value, either from aValue or ALU
+    	setA,			 // 0 = aValue, 1 = ALU output
+	    aValue[16],	     // A value output
+	    writeD,			 // Write ALU output to register D
+	    writeM,			 // Write ALU output to memory
+	    readM,			 // Input ALU from memory = 1, Input ALU from D = 0
+	    zx,				 // ALU Inputs
+	    nx,
+	    zy,
+	    ny,
+	    f,
+	    no,
+	    jlz,			 // JUMP if z > 0
+	    jeq,			 // JUMP if z = 0
+	    jgz;			 // JUMP if z < 0
+
+    PARTS:
+	//Write A value or provide cInstruction
+    Not(in=instruction[15],out=isAinstruction);
+    Not(in=isAinstruction,out=isCinstruction);
+    Mux16(b=instruction,sel=isAinstruction,out=aValue);
+
+    //Read M input
+    And(a=instruction[12],b=isCinstruction,out=readM);
+
+    //ALU outputs
+    And(a=instruction[11],b=isCinstruction,out=zx);
+    And(a=instruction[10],b=isCinstruction,out=nx);
+    And(a=instruction[9],b=isCinstruction,out=zy);
+    And(a=instruction[8],b=isCinstruction,out=ny);
+    And(a=instruction[7],b=isCinstruction,out=f);
+    And(a=instruction[6],b=isCinstruction,out=no);
+
+    //Destination outputs
+    And(a=instruction[5],b=isCinstruction,out=writeA1);
+    Or(a=isAinstruction,b=writeA1,out=writeA);
+    Or(a=writeA1,out=setA);
+    And(a=instruction[4],b=isCinstruction,out=writeD);
+    And(a=instruction[3],b=isCinstruction,out=writeM);
+
+    //Jump outputs
+    And(a=instruction[2],b=isCinstruction,out=jlz);
+    And(a=instruction[1],b=isCinstruction,out=jeq);
+    And(a=instruction[0],b=isCinstruction,out=jgz);
+}
