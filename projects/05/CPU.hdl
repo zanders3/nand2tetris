@@ -40,8 +40,8 @@ CHIP CPU {
 
     PARTS:
     InstructionDecoder(instruction=instruction,aValue=aValueIn,setA=setA,writeA=writeA,writeD=writeD,writeM=writeM,readM=readM,zx=zx,nx=nx,zy=zy,ny=ny,f=f,no=no,jlz=jlz,jeq=jeq,jgz=jgz);
-    Mux16(a=aValueIn,b=aluResult,sel=setA);
-    ARegister(in=aValueIn,load=writeA,out=aValue);
+    Mux16(a=aValueIn,b=aluResult,sel=setA,out=aValueIn2);
+    ARegister(in=aValueIn2,load=writeA,out=aValue);
     Or16(a=aValue,out[0..14]=addressM);
 
     DRegister(in=aluResult,load=writeD,out=dValue);
