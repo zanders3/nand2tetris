@@ -1,0 +1,9 @@
+CHIP Or16Way {
+	IN in[16];
+    OUT out;
+
+    PARTS:
+	Or8Way(in=in[0..7],out=eq1);
+    Or8Way(in=in[8..15],out=eq2);
+    Or(a=eq1,b=eq2,out=out);
+}
