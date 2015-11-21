@@ -12,7 +12,7 @@ public static class Assembler
 		}
 	}
 
-	static void Assemble(StreamWriter writer, List<string> lines)
+	static void Assemble(StreamReader reader, StreamWriter writer)
 	{
 		Dictionary<string, int> symbolTable = new Dictionary<string, int>
 		{
@@ -30,21 +30,27 @@ public static class Assembler
 		Dictionary<string, int> labelTable = new Dictionary<string, int>();
 
 		//First allocate symbol and line tables
-		int lineIdx = 0, lineCount = 0, symbolIdx = 15;
+		int lineIdx = 0, lineCount = 0, symbolIdx = 16;
+		List<string> lines = new List<string>();
+		{
+			string line;
+			while ((line = reader.ReadLine()) != null)
+			{
+				line = line.Trim();
+				int ind = line.IndexOf("//");
+				if (ind != -1)
+					line = line.Substring(0,ind).Trim();
+
+				if (line.Length <= 1)
+					continue;
+
+				lines.Add(line);
+			}
+		}
+
 		foreach (string line in lines)
 		{
-			if (line.Length <= 1)
-				continue;
-			if (line[0] == '@' && char.IsLetter(line[1]))
-			{
-				string symbol = line.Substring(1);
-				if (!symbolTable.ContainsKey(symbol))
-				{
-					symbolTable[symbol] = symbolIdx++;
-				}
-				lineCount++;
-			}
-			else if (line[0] == '(' && line[line.Length-1] == ')')
+			if (line[0] == '(' && line[line.Length-1] == ')')
 			{
 				string label = line.Substring(1,line.Length-2);
 				if (labelTable.ContainsKey(label))
@@ -53,6 +59,18 @@ public static class Assembler
 			}
 			else
 				lineCount++;
+		}
+
+		foreach (string line in lines)
+		{
+			if (line[0] == '@' && char.IsLetter(line[1]))
+			{
+				string symbol = line.Substring(1);
+				if (labelTable.ContainsKey(symbol))
+					continue;
+				if (!symbolTable.ContainsKey(symbol))
+					symbolTable[symbol] = symbolIdx++;
+			}
 			lineIdx++;
 		}
 
@@ -237,7 +255,7 @@ public static class Assembler
 
 	public static void Main(string[] args)
 	{
-		if (args.Length != 1 && !args[0].EndsWith(".asm"))
+		if (args.Length != 1 || !args[0].EndsWith(".asm"))
 		{
 			Console.WriteLine("Usage: Prog.asm");
 			return;
@@ -247,16 +265,10 @@ public static class Assembler
 		{
 			using (var writer = new StreamWriter(Path.Combine(Path.GetDirectoryName(args[0]), Path.GetFileNameWithoutExtension(args[0]) + ".hack")))
 			{
-				List<string> lines = File.ReadAllLines(args[0]).Select(line =>
+				using (var reader = new StreamReader(args[0]))
 				{
-					string l = line.Trim();
-					int ind = l.IndexOf("//");
-					if (ind != -1)
-						l = l.Substring(0,ind).Trim();
-					return l;
-				}).ToList();
-
-				Assemble(writer, lines);
+					Assemble(reader, writer);
+				}
 			}
 		}	
 		catch (ParseException e)
