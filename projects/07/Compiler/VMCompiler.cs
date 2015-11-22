@@ -91,6 +91,14 @@ public static class VMCompiler
 						writer.A(command.Arg2.Value + 5);
 						writer.Write("D=M");
 					}
+					else if (command.Arg1 == "pointer")
+					{
+						if (command.Arg2 > 1 || command.Arg2 < 0)
+							throw new CompileException("Pointer out of range: " + command.Arg2, command.LineIdx);
+
+						writer.Write(command.Arg2 == 0 ? "@THIS" : "@THAT");
+						writer.Write("D=M");
+					}
 					else
 					{
 						writer.Write(GetMemoryReg(command), "D=M", "@" + command.Arg2, "A=D+A");
@@ -108,6 +116,15 @@ public static class VMCompiler
 
 						writer.Write("@SP", "M=M-1", "A=M", "D=M");
 						writer.A(command.Arg2.Value + 5);
+						writer.Write("M=D");
+					}
+					else if (command.Arg1 == "pointer")
+					{
+						if (command.Arg2 > 1 || command.Arg2 < 0)
+							throw new CompileException("Pointer out of range: " + command.Arg2, command.LineIdx);
+
+						writer.Write("@SP", "M=M-1", "A=M", "D=M");
+						writer.Write(command.Arg2 == 0 ? "@THIS" : "@THAT");
 						writer.Write("M=D");
 					}
 					else
