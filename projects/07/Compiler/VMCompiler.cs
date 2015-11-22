@@ -10,7 +10,7 @@ public static class VMCompiler
 			this.writer = writer;
 		}
 
-		string nextComment = null;
+		string nextComment;
 		readonly StreamWriter writer;
 		public int LineNumber { get; private set; }
 		public void Write(params string[] vals) 
@@ -49,6 +49,23 @@ public static class VMCompiler
 		}
 	}
 
+	static string GetMemoryReg(VMCommand command)
+	{
+		switch (command.Arg1)
+		{
+			case "local":
+				return "@LCL";
+			case "argument":
+				return "@ARG";
+			case "this":
+				return "@THIS";
+			case "that":
+				return "@THAT";
+			default:
+				throw new CompileException("Invalid target memory location: " + command.Arg1, command.LineIdx);	
+		}
+	}
+
 	public static void Compile(StreamReader streamReader, StreamWriter streamWriter)
 	{
 		VMWriter writer = new VMWriter(streamWriter);
@@ -61,14 +78,42 @@ public static class VMCompiler
 			{
 				case VMCommand.CommandType.Push:
 					command.Expect2Args();
-					switch (command.Arg1)
+					if (command.Arg1 == "constant")
 					{
-						case "constant":
-							writer.A(command.Arg2.Value);
-							writer.Write("D=A", "@SP", "A=M", "M=D");
-							break;
-						default:
-							throw new CompileException("Invalid push type: " + command.Arg1, command.LineIdx);	
+						writer.A(command.Arg2.Value);
+						writer.Write("D=A");
+					}
+					else if (command.Arg1 == "temp")
+					{
+						if (command.Arg2 > 7 || command.Arg2 < 0)
+							throw new CompileException("Temp out of range: " + command.Arg2, command.LineIdx);
+
+						writer.A(command.Arg2.Value + 5);
+						writer.Write("D=M");
+					}
+					else
+					{
+						writer.Write(GetMemoryReg(command), "D=M", "@" + command.Arg2, "A=D+A");
+						writer.Write("D=M");
+					}
+					writer.Write("@SP", "A=M", "M=D");
+					writer.IncSP();
+					break;
+				case VMCommand.CommandType.Pop:
+					command.Expect2Args();
+					if (command.Arg1 == "temp")
+					{
+						if (command.Arg2 > 7 || command.Arg2 < 0)
+							throw new CompileException("Temp out of range: " + command.Arg2, command.LineIdx);
+
+						writer.Write("@SP", "M=M-1", "A=M", "D=M");
+						writer.A(command.Arg2.Value + 5);
+						writer.Write("M=D");
+					}
+					else
+					{
+						writer.Write(GetMemoryReg(command), "D=M", "@" + command.Arg2, "D=D+A", "@R13", "M=D");
+						writer.Write("@SP", "M=M-1", "A=M", "D=M", "@R13", "A=M", "M=D");
 					}
 					break;
 				case VMCommand.CommandType.Add:
@@ -85,6 +130,7 @@ public static class VMCompiler
 						command.Command == VMCommand.CommandType.Or ? "|" :
 						"&"
 					));
+					writer.IncSP();
 					break;
 				case VMCommand.CommandType.Eq:
 				case VMCommand.CommandType.Lt:
@@ -100,6 +146,7 @@ public static class VMCompiler
 						command.Command == VMCommand.CommandType.Lt ? "JLT" :
 						"JGT";
 					writer.Write("D;" + jmpOp, "@SP", "A=M", "M=0");
+					writer.IncSP();
 					break;
 				case VMCommand.CommandType.Neg:
 				case VMCommand.CommandType.Not:
@@ -107,11 +154,11 @@ public static class VMCompiler
 					string bitOp = command.Command == VMCommand.CommandType.Neg ? "-" : "!";
 					writer.DecSP();
 					writer.Write("A=M",string.Format("M={0}M", bitOp));
+					writer.IncSP();
 					break;
 				default:
 					throw new CompileException("Unknown command: " + command.Command, command.LineIdx);
 			}
-			writer.IncSP();
 		}
 
 		writer.Write("(INFLOOP)", "@INFLOOP", "0;JMP");

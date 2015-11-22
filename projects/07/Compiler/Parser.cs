@@ -7,6 +7,7 @@ public struct VMCommand
 	public enum CommandType
 	{
 		Push,
+		Pop,
 		Add,
 		Sub,
 		Or,
