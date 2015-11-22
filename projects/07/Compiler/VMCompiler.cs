@@ -3,94 +3,118 @@ using System.IO;
 
 public static class VMCompiler
 {
-	class CompileException : Exception
+	class VMWriter
 	{
-		public CompileException(string message, int lineIdx) : base(message + " on line " + lineIdx)
-		{}
-	}
-
-	static void ExpectArgs(string[] args, int numArgs, int lineIdx)
-	{
-		if (args.Length != numArgs)
-			throw new CompileException("Expected " + numArgs + " got " + args.Length, lineIdx);
-	}
-
-	public static void Compile(StreamReader reader, StreamWriter writer)
-	{
-		writer.WriteLine("@256 //stack setup\nD=A\n@SP\nM=D");
-		int lineIdx = 1, outputLineIdx = 4;
-		string line;
-		while ((line = reader.ReadLine()) != null)
+		public VMWriter(StreamWriter writer)
 		{
-			line = line.Trim();
-			if (line.StartsWith("//") || line.Length == 0)
+			this.writer = writer;
+		}
+
+		string nextComment = null;
+		readonly StreamWriter writer;
+		public int LineNumber { get; private set; }
+		public void Write(params string[] vals) 
+		{ 
+			writer.Write(vals[0]);
+			if (nextComment != null)
 			{
-				lineIdx++;
-				continue;
+				writer.Write(" //");
+				writer.Write(nextComment);
+				nextComment = null;
 			}
-			string[] args = line.Split(' ');
-			if (args.Length == 0)
-				continue;
-			switch (args[0])
+			writer.WriteLine();
+			for (int i = 1; i<vals.Length; i++)
+				writer.WriteLine(vals[i]);
+			LineNumber += vals.Length; 
+		}
+
+		public void Comment(string comment)
+		{
+			nextComment = comment;
+		}
+
+		public void A(int val)
+		{
+			Write("@" + val);
+		}
+
+		public void DecSP()
+		{
+			Write("@SP", "M=M-1");
+		}
+
+		public void IncSP()
+		{
+			Write("@SP", "M=M+1");
+		}
+	}
+
+	public static void Compile(StreamReader streamReader, StreamWriter streamWriter)
+	{
+		VMWriter writer = new VMWriter(streamWriter);
+		writer.Write("@256 //stacksetup", "D=A", "@SP", "M=D");
+
+		foreach (VMCommand command in VMParser.Parse(streamReader))
+		{
+			writer.Comment(command.Line);
+			switch (command.Command)
 			{
-				case "push":
-					ExpectArgs(args, 3, lineIdx);
-					switch (args[1])
+				case VMCommand.CommandType.Push:
+					command.Expect2Args();
+					switch (command.Arg1)
 					{
 						case "constant":
-							int val;
-							if (!int.TryParse(args[2], out val))
-								throw new CompileException("Expected number not: " + args[2], lineIdx);
-							writer.WriteLine("@{0} //{1}", args[2], line);
-							writer.WriteLine("D=A\n@SP\nA=M\nM=D");
-							outputLineIdx += 4;
+							writer.A(command.Arg2.Value);
+							writer.Write("D=A", "@SP", "A=M", "M=D");
 							break;
 						default:
-							throw new CompileException("Invalid push type: " + args[1], lineIdx);
+							throw new CompileException("Invalid push type: " + command.Arg1, command.LineIdx);	
 					}
 					break;
-				case "add":
-				case "sub":
-				case "or":
-				case "and":
-					ExpectArgs(args, 1, lineIdx);
-					writer.WriteLine(
-						"@SP //{0}\nM=M-1\nA=M\nD=M\n@SP\nM=M-1\nA=M\nM=M{1}D",
-						line,
-						args[0] == "add" ? "+" : 
-						args[0] == "sub" ? "-" :
-						args[0] == "or"  ? "|" :
+				case VMCommand.CommandType.Add:
+				case VMCommand.CommandType.Sub:
+				case VMCommand.CommandType.Or:
+				case VMCommand.CommandType.And:
+					writer.DecSP();
+					writer.Write("A=M", "D=M");
+					writer.DecSP();
+					writer.Write("A=M", string.Format(
+						"M=M{0}D",
+						command.Command == VMCommand.CommandType.Add ? "+" : 
+						command.Command == VMCommand.CommandType.Sub ? "-" :
+						command.Command == VMCommand.CommandType.Or ? "|" :
 						"&"
-					);
-					outputLineIdx += 8;
+					));
 					break;
-				case "eq":
-				case "lt":
-				case "gt":
-					ExpectArgs(args, 1, lineIdx);
-					writer.WriteLine("@SP //{0}\nM=M-1\nA=M\nD=M\n@SP\nM=M-1\nA=M\nD=M-D", line);
-					outputLineIdx += 8;
+				case VMCommand.CommandType.Eq:
+				case VMCommand.CommandType.Lt:
+				case VMCommand.CommandType.Gt:
+					writer.DecSP();
+					writer.Write("A=M", "D=M");
+					writer.DecSP();
+					writer.Write("A=M", "D=M-D", "M=-1");
+					writer.A(writer.LineNumber+5);
 					//D=A-B, SP=RESULT POS
 					string jmpOp =
-						args[0] == "eq" ? "JEZ" :
-						args[0] == "lt" ? "JLZ" :
-						"JGZ";
-					writer.WriteLine("M=1\n@LBL{1}\nD;{0}\n@SP\nM=0\n(LBL{1})", jmpOp, labelIdx++);
-					outputLineIdx += 6;
+						command.Command == VMCommand.CommandType.Eq ? "JEQ" :
+						command.Command == VMCommand.CommandType.Lt ? "JLT" :
+						"JGT";
+					writer.Write("D;" + jmpOp, "@SP", "A=M", "M=0");
 					break;
-				case "neg":
-				case "not":
-					ExpectArgs(args, 1, lineIdx);
-					string bitOp = args[0] == "neg" ? "-" : "!";
-					writer.WriteLine("@SP //{0}\nM=M-1\nA=M\nM={1}M", line, bitOp);
-					outputLineIdx += 4;
+				case VMCommand.CommandType.Neg:
+				case VMCommand.CommandType.Not:
+					command.ExpectArg();
+					string bitOp = command.Command == VMCommand.CommandType.Neg ? "-" : "!";
+					writer.DecSP();
+					writer.Write("A=M",string.Format("M={0}M", bitOp));
 					break;
 				default:
-					throw new CompileException("Unknown command: " + args[0], lineIdx);
+					throw new CompileException("Unknown command: " + command.Command, command.LineIdx);
 			}
-			writer.WriteLine("@SP\nM=M+1");
-			lineIdx++;
+			writer.IncSP();
 		}
+
+		writer.Write("(INFLOOP)", "@INFLOOP", "0;JMP");
 	}
 
 	public static void Main(string[] args)

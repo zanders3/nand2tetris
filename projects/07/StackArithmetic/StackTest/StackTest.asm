@@ -1,4 +1,4 @@
-@256 //stack setup
+@256 //stacksetup
 D=A
 @SP
 M=D
@@ -24,12 +24,12 @@ D=M
 M=M-1
 A=M
 D=M-D
-M=1
-@LBL1
-D;JEZ
+M=-1
+@32
+D;JEQ
 @SP
+A=M
 M=0
-(LBL1)
 @SP
 M=M+1
 @17 //push constant 17
@@ -54,12 +54,12 @@ D=M
 M=M-1
 A=M
 D=M-D
-M=1
-@LBL2
-D;JEZ
+M=-1
+@62
+D;JEQ
 @SP
+A=M
 M=0
-(LBL2)
 @SP
 M=M+1
 @16 //push constant 16
@@ -84,12 +84,12 @@ D=M
 M=M-1
 A=M
 D=M-D
-M=1
-@LBL3
-D;JEZ
+M=-1
+@92
+D;JEQ
 @SP
+A=M
 M=0
-(LBL3)
 @SP
 M=M+1
 @892 //push constant 892
@@ -114,12 +114,12 @@ D=M
 M=M-1
 A=M
 D=M-D
-M=1
-@LBL4
-D;JLZ
+M=-1
+@122
+D;JLT
 @SP
+A=M
 M=0
-(LBL4)
 @SP
 M=M+1
 @891 //push constant 891
@@ -144,12 +144,12 @@ D=M
 M=M-1
 A=M
 D=M-D
-M=1
-@LBL5
-D;JLZ
+M=-1
+@152
+D;JLT
 @SP
+A=M
 M=0
-(LBL5)
 @SP
 M=M+1
 @891 //push constant 891
@@ -174,12 +174,12 @@ D=M
 M=M-1
 A=M
 D=M-D
-M=1
-@LBL6
-D;JLZ
+M=-1
+@182
+D;JLT
 @SP
+A=M
 M=0
-(LBL6)
 @SP
 M=M+1
 @32767 //push constant 32767
@@ -204,12 +204,12 @@ D=M
 M=M-1
 A=M
 D=M-D
-M=1
-@LBL7
-D;JGZ
+M=-1
+@212
+D;JGT
 @SP
+A=M
 M=0
-(LBL7)
 @SP
 M=M+1
 @32766 //push constant 32766
@@ -234,12 +234,12 @@ D=M
 M=M-1
 A=M
 D=M-D
-M=1
-@LBL8
-D;JGZ
+M=-1
+@242
+D;JGT
 @SP
+A=M
 M=0
-(LBL8)
 @SP
 M=M+1
 @32766 //push constant 32766
@@ -264,12 +264,12 @@ D=M
 M=M-1
 A=M
 D=M-D
-M=1
-@LBL9
-D;JGZ
+M=-1
+@272
+D;JGT
 @SP
+A=M
 M=0
-(LBL9)
 @SP
 M=M+1
 @57 //push constant 57
@@ -359,3 +359,6 @@ A=M
 M=!M
 @SP
 M=M+1
+(INFLOOP)
+@INFLOOP
+0;JMP

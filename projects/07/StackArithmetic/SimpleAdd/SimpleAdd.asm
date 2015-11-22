@@ -1,4 +1,4 @@
-@256 //stack setup
+@256 //stacksetup
 D=A
 @SP
 M=D
@@ -26,3 +26,6 @@ A=M
 M=M+D
 @SP
 M=M+1
+(INFLOOP)
+@INFLOOP
+0;JMP
