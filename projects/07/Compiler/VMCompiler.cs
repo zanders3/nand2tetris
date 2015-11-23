@@ -66,9 +66,9 @@ public static class VMCompiler
 		}
 	}
 
-	public static void Compile(StreamReader streamReader, StreamWriter streamWriter)
+	public static void Compile(StreamReader streamReader, StreamWriter streamWriter, string fileName)
 	{
-		VMWriter writer = new VMWriter(streamWriter);
+		var writer = new VMWriter(streamWriter);
 		writer.Write("@256 //stacksetup", "D=A", "@SP", "M=D");
 
 		foreach (VMCommand command in VMParser.Parse(streamReader))
@@ -78,59 +78,67 @@ public static class VMCompiler
 			{
 				case VMCommand.CommandType.Push:
 					command.Expect2Args();
-					if (command.Arg1 == "constant")
+					switch (command.Arg1)
 					{
-						writer.A(command.Arg2.Value);
-						writer.Write("D=A");
-					}
-					else if (command.Arg1 == "temp")
-					{
-						if (command.Arg2 > 7 || command.Arg2 < 0)
-							throw new CompileException("Temp out of range: " + command.Arg2, command.LineIdx);
+						case "constant":
+							writer.A(command.Arg2.Value);
+							writer.Write("D=A");
+							break;
+						case  "temp":
+							if (command.Arg2 > 7 || command.Arg2 < 0)
+								throw new CompileException("Temp out of range: " + command.Arg2, command.LineIdx);
 
-						writer.A(command.Arg2.Value + 5);
-						writer.Write("D=M");
-					}
-					else if (command.Arg1 == "pointer")
-					{
-						if (command.Arg2 > 1 || command.Arg2 < 0)
-							throw new CompileException("Pointer out of range: " + command.Arg2, command.LineIdx);
+							writer.A(command.Arg2.Value + 5);
+							writer.Write("D=M");
+							break;
+						case "pointer":
+							if (command.Arg2 > 1 || command.Arg2 < 0)
+								throw new CompileException("Pointer out of range: " + command.Arg2, command.LineIdx);
 
-						writer.Write(command.Arg2 == 0 ? "@THIS" : "@THAT");
-						writer.Write("D=M");
-					}
-					else
-					{
-						writer.Write(GetMemoryReg(command), "D=M", "@" + command.Arg2, "A=D+A");
-						writer.Write("D=M");
+							writer.Write(command.Arg2 == 0 ? "@THIS" : "@THAT");
+							writer.Write("D=M");
+							break;
+						case "static":
+							writer.Write("@" + fileName + "." + command.Arg2);
+							writer.Write("D=M");
+							break;
+						default:
+							writer.Write(GetMemoryReg(command), "D=M", "@" + command.Arg2, "A=D+A");
+							writer.Write("D=M");
+							break;
 					}
 					writer.Write("@SP", "A=M", "M=D");
-					writer.IncSP();
+                    writer.IncSP();
 					break;
 				case VMCommand.CommandType.Pop:
 					command.Expect2Args();
-					if (command.Arg1 == "temp")
+					switch (command.Arg1)
 					{
-						if (command.Arg2 > 7 || command.Arg2 < 0)
-							throw new CompileException("Temp out of range: " + command.Arg2, command.LineIdx);
+						case "temp":
+							if (command.Arg2 > 7 || command.Arg2 < 0)
+								throw new CompileException("Temp out of range: " + command.Arg2, command.LineIdx);
 
-						writer.Write("@SP", "M=M-1", "A=M", "D=M");
-						writer.A(command.Arg2.Value + 5);
-						writer.Write("M=D");
-					}
-					else if (command.Arg1 == "pointer")
-					{
-						if (command.Arg2 > 1 || command.Arg2 < 0)
-							throw new CompileException("Pointer out of range: " + command.Arg2, command.LineIdx);
+							writer.Write("@SP", "M=M-1", "A=M", "D=M");
+							writer.A(command.Arg2.Value + 5);
+							writer.Write("M=D");
+							break;	
+						case "pointer":
+							if (command.Arg2 > 1 || command.Arg2 < 0)
+								throw new CompileException("Pointer out of range: " + command.Arg2, command.LineIdx);
 
-						writer.Write("@SP", "M=M-1", "A=M", "D=M");
-						writer.Write(command.Arg2 == 0 ? "@THIS" : "@THAT");
-						writer.Write("M=D");
-					}
-					else
-					{
-						writer.Write(GetMemoryReg(command), "D=M", "@" + command.Arg2, "D=D+A", "@R13", "M=D");
-						writer.Write("@SP", "M=M-1", "A=M", "D=M", "@R13", "A=M", "M=D");
+							writer.Write("@SP", "M=M-1", "A=M", "D=M");
+							writer.Write(command.Arg2 == 0 ? "@THIS" : "@THAT");
+							writer.Write("M=D");
+							break;
+						case "static":
+							writer.Write("@SP", "M=M-1", "A=M", "D=M");
+							writer.Write("@" + fileName + "." + command.Arg2);
+							writer.Write("M=D");
+							break;
+						default:
+							writer.Write(GetMemoryReg(command), "D=M", "@" + command.Arg2, "D=D+A", "@R13", "M=D");
+							writer.Write("@SP", "M=M-1", "A=M", "D=M", "@R13", "A=M", "M=D");
+							break;
 					}
 					break;
 				case VMCommand.CommandType.Add:
@@ -191,15 +199,15 @@ public static class VMCompiler
 
 		try
 		{
-			using (StreamReader reader = new StreamReader(args[0]))
+			using (var reader = new StreamReader(args[0]))
 			{
 				string targetPath = Path.Combine(
 					Path.GetDirectoryName(args[0]), 
 					Path.GetFileNameWithoutExtension(args[0]) + ".asm"
 				);
-				using (StreamWriter writer = new StreamWriter(targetPath))
+				using (var writer = new StreamWriter(targetPath))
 				{
-					Compile(reader, writer);
+					Compile(reader, writer, Path.GetFileNameWithoutExtension(targetPath));
 				}
 			}
 		}
