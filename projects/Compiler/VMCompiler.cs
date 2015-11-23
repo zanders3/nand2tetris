@@ -62,7 +62,7 @@ public static class VMCompiler
 			case "that":
 				return "@THAT";
 			default:
-				throw new CompileException("Invalid target memory location: " + command.Arg1, command.LineIdx);	
+				throw new CompileException("Invalid target memory location: " + command.Arg1, command.LineIdx, command.Line);	
 		}
 	}
 
@@ -86,14 +86,14 @@ public static class VMCompiler
 							break;
 						case  "temp":
 							if (command.Arg2 > 7 || command.Arg2 < 0)
-								throw new CompileException("Temp out of range: " + command.Arg2, command.LineIdx);
+								throw new CompileException("Temp out of range: " + command.Arg2, command.LineIdx, command.Line);
 
 							writer.A(command.Arg2.Value + 5);
 							writer.Write("D=M");
 							break;
 						case "pointer":
 							if (command.Arg2 > 1 || command.Arg2 < 0)
-								throw new CompileException("Pointer out of range: " + command.Arg2, command.LineIdx);
+								throw new CompileException("Pointer out of range: " + command.Arg2, command.LineIdx, command.Line);
 
 							writer.Write(command.Arg2 == 0 ? "@THIS" : "@THAT");
 							writer.Write("D=M");
@@ -116,7 +116,7 @@ public static class VMCompiler
 					{
 						case "temp":
 							if (command.Arg2 > 7 || command.Arg2 < 0)
-								throw new CompileException("Temp out of range: " + command.Arg2, command.LineIdx);
+								throw new CompileException("Temp out of range: " + command.Arg2, command.LineIdx, command.Line);
 
 							writer.Write("@SP", "M=M-1", "A=M", "D=M");
 							writer.A(command.Arg2.Value + 5);
@@ -124,7 +124,7 @@ public static class VMCompiler
 							break;	
 						case "pointer":
 							if (command.Arg2 > 1 || command.Arg2 < 0)
-								throw new CompileException("Pointer out of range: " + command.Arg2, command.LineIdx);
+								throw new CompileException("Pointer out of range: " + command.Arg2, command.LineIdx, command.Line);
 
 							writer.Write("@SP", "M=M-1", "A=M", "D=M");
 							writer.Write(command.Arg2 == 0 ? "@THIS" : "@THAT");
@@ -175,14 +175,27 @@ public static class VMCompiler
 					break;
 				case VMCommand.CommandType.Neg:
 				case VMCommand.CommandType.Not:
-					command.ExpectArg();
+					command.ExpectNoArg();
 					string bitOp = command.Command == VMCommand.CommandType.Neg ? "-" : "!";
 					writer.DecSP();
 					writer.Write("A=M",string.Format("M={0}M", bitOp));
 					writer.IncSP();
 					break;
+				case VMCommand.CommandType.Label:
+					command.ExpectArg();
+					writer.Write("(" + fileName + "$" + command.Arg1 + ")");
+					break;
+				case VMCommand.CommandType.IfGoto:
+					command.ExpectArg();
+					writer.DecSP();
+					writer.Write("A=M", "D=M", "@" + fileName + "$" + command.Arg1, "D;JGT");
+					break;
+				case VMCommand.CommandType.Goto:
+					command.ExpectArg();
+					writer.Write("@" + fileName + "$" + command.Arg1, "0;JMP");
+					break;
 				default:
-					throw new CompileException("Unknown command: " + command.Command, command.LineIdx);
+					throw new CompileException("Unknown command: " + command.Command, command.LineIdx, command.Line);
 			}
 		}
 

@@ -16,7 +16,10 @@ public struct VMCommand
 		Lt,
 		Gt,
 		Neg,
-		Not
+		Not,
+		Label,
+		IfGoto,
+		Goto
 	}
 
 	public CommandType Command;
@@ -28,19 +31,25 @@ public struct VMCommand
 	public void Expect2Args()
 	{
 		if (!Arg2.HasValue)
-			throw new CompileException("Expected two arguments", LineIdx);
+			throw new CompileException("Expected two arguments", LineIdx, Line);
 	}
 
 	public void ExpectArg()
 	{
+		if (string.IsNullOrEmpty(Arg1))
+			throw new CompileException("Expected one argument", LineIdx, Line);
+	}
+
+	public void ExpectNoArg()
+	{
 		if (!string.IsNullOrEmpty(Arg1))
-			throw new CompileException("Expected one argument", LineIdx);
+			throw new CompileException("Expected no arguments", LineIdx, Line);
 	}
 }
 
 class CompileException : Exception
 {
-	public CompileException(string message, int lineIdx) : base(message + " on line " + lineIdx)
+	public CompileException(string message, int lineIdx, string line) : base(message + " on line " + lineIdx + ": " + line)
 	{}
 }
 
@@ -51,19 +60,22 @@ public static class VMParser
 		string line;
 		for (int lineIdx = 1; (line = reader.ReadLine()) != null; lineIdx++)
 		{
+			if (line.Contains("//"))
+				line = line.Substring(0, line.IndexOf("//"));
 			line = line.Trim();
-			if (line.StartsWith("//") || line.Length == 0)
+			if (line.Length == 0)
 				continue;
 			string[] args = line.Split(' ');
 			if (args.Length == 0)
 				continue;
 
+			args[0] = args[0].Replace("if-goto", "IfGoto");
 			VMCommand.CommandType type;
 			if (!Enum.TryParse<VMCommand.CommandType>(args[0], true, out type))
-				throw new CompileException("Unknown command: '" + args[0] + "'", lineIdx);
+				throw new CompileException("Unknown command: '" + args[0] + "'", lineIdx, line);
 			int arg2 = 0;
 			if (args.Length >= 3 && !int.TryParse(args[2], out arg2))
-				throw new CompileException("Expected number: '" + args[2] + "'", lineIdx);
+				throw new CompileException("Expected number: '" + args[2] + "'", lineIdx, line);
 
 			yield return new VMCommand
 			{
