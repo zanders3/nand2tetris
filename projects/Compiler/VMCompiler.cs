@@ -69,7 +69,7 @@ public static class VMCompiler
 	public static void Compile(StreamReader streamReader, StreamWriter streamWriter, string fileName)
 	{
 		var writer = new VMWriter(streamWriter);
-		writer.Write("@256 //stacksetup", "D=A", "@SP", "M=D");
+		//writer.Write("@256 //stacksetup", "D=A", "@SP", "M=D");
 
 		string currentFunctionName = null;
 
@@ -199,17 +199,34 @@ public static class VMCompiler
 				case VMCommand.CommandType.Function:
 					command.Expect2Args();
 					currentFunctionName = command.Arg1;
-					command.Write("@" + command.Arg1);
-					writer.Write("@SP");
+					writer.Write("@" + command.Arg1);
+					writer.Write("@SP", "A=M");
 					for (int i = 0; i<command.Arg2; i++) 
 					{
-						command.Write("A=M", "M=0", "A=A+1");
+						writer.Write("M=0", "A=A+1");
 					}
 					writer.Write("D=A", "@SP", "M=D");
 					break;
 				case VMCommand.CommandType.Return:
 					command.ExpectNoArg();
 					currentFunctionName = null;
+					writer.Comment("RETURN FRAME = LCL");
+					writer.Write("@LCL", "D=M", "@R14", "M=D");
+					writer.Comment("RET = *(FRAME-5)");
+					writer.Write("@5", "A=D-A", "D=M", "@R15", "M=D");
+					writer.Comment("*ARG= pop()");
+					writer.Write("@SP", "A=M-1", "D=M", "@ARG", "A=M", "M=D");
+					writer.Comment("SP = ARG + 1");
+					writer.Write("@ARG", "D=M+1", "@SP", "M=D");
+					writer.Comment("FRAME=FRAME-1; THAT = *FRAME;");
+					writer.Write("@R14", "AM=M-1", "D=M", "@THAT", "M=D");
+					writer.Comment("FRAME=FRAME-1; THIS = *FRAME;");
+					writer.Write("@R14", "AM=M-1", "D=M", "@THIS", "M=D");
+					writer.Comment("FRAME=FRAME-1; ARG = *FRAME;");
+					writer.Write("@R14", "AM=M-1", "D=M", "@ARG", "M=D");
+					writer.Comment("FRAME=FRAME-1; LCL = *FRAME;");
+					writer.Write("@R14", "AM=M-1", "D=M", "@LCL", "M=D");
+					writer.Write("@R15", "A=M", "0;JMP");
 					break;
 				default:
 					throw new CompileException("Unknown command: " + command.Command, command.LineIdx, command.Line);
