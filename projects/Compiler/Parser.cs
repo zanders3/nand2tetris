@@ -19,7 +19,9 @@ public struct VMCommand
 		Not,
 		Label,
 		IfGoto,
-		Goto
+		Goto,
+		Function,
+		Return
 	}
 
 	public CommandType Command;

@@ -71,6 +71,8 @@ public static class VMCompiler
 		var writer = new VMWriter(streamWriter);
 		writer.Write("@256 //stacksetup", "D=A", "@SP", "M=D");
 
+		string currentFunctionName = null;
+
 		foreach (VMCommand command in VMParser.Parse(streamReader))
 		{
 			writer.Comment(command.Line);
@@ -183,16 +185,31 @@ public static class VMCompiler
 					break;
 				case VMCommand.CommandType.Label:
 					command.ExpectArg();
-					writer.Write("(" + fileName + "$" + command.Arg1 + ")");
+					writer.Write("(" + currentFunctionName ?? fileName + "$" + command.Arg1 + ")");
 					break;
 				case VMCommand.CommandType.IfGoto:
 					command.ExpectArg();
 					writer.DecSP();
-					writer.Write("A=M", "D=M", "@" + fileName + "$" + command.Arg1, "D;JGT");
+					writer.Write("A=M", "D=M", "@" + currentFunctionName ?? fileName + "$" + command.Arg1, "D;JGT");
 					break;
 				case VMCommand.CommandType.Goto:
 					command.ExpectArg();
-					writer.Write("@" + fileName + "$" + command.Arg1, "0;JMP");
+					writer.Write("@" + currentFunctionName ?? fileName + "$" + command.Arg1, "0;JMP");
+					break;
+				case VMCommand.CommandType.Function:
+					command.Expect2Args();
+					currentFunctionName = command.Arg1;
+					command.Write("@" + command.Arg1);
+					writer.Write("@SP");
+					for (int i = 0; i<command.Arg2; i++) 
+					{
+						command.Write("A=M", "M=0", "A=A+1");
+					}
+					writer.Write("D=A", "@SP", "M=D");
+					break;
+				case VMCommand.CommandType.Return:
+					command.ExpectNoArg();
+					currentFunctionName = null;
 					break;
 				default:
 					throw new CompileException("Unknown command: " + command.Command, command.LineIdx, command.Line);
