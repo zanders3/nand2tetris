@@ -21,7 +21,8 @@ public struct VMCommand
 		IfGoto,
 		Goto,
 		Function,
-		Return
+		Return,
+		Call
 	}
 
 	public CommandType Command;

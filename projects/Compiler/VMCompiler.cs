@@ -228,6 +228,31 @@ public static class VMCompiler
 					writer.Write("@R14", "AM=M-1", "D=M", "@LCL", "M=D");
 					writer.Write("@R15", "A=M", "0;JMP");
 					break;
+				case VMCommand.CommandType.Call:
+					command.Expect2Args();
+					writer.Comment("push RETURN ADDRESS");
+					writer.Write("@" + command.Arg1 + "$RETURN");
+					writer.Write("D=A", "@SP", "A=M", "M=D");
+					writer.IncSP();
+					writer.Comment("push LCL");
+					writer.Write("@LCL", "A=M", "D=M", "@SP", "A=M", "M=D");
+					writer.IncSP();
+					writer.Comment("push ARG");
+					writer.Write("@ARG", "A=M", "D=M", "@SP", "A=M", "M=D");
+					writer.IncSP();
+					writer.Comment("push THIS");
+					writer.Write("@THIS", "A=M", "D=M", "@SP", "A=M", "M=D");
+					writer.IncSP();
+					writer.Comment("push THAT");
+					writer.Write("@THAT", "A=M", "D=M", "@SP", "A=M", "M=D");
+					writer.IncSP();
+					writer.Comment("ARG = SP-n-5");
+					writer.Write("@SP", "A=M", "D=M", "@" + (command.Arg2 + 5), "D=D-A", "@ARG", "M=D");
+					writer.Comment("LCL = SP");
+					writer.Write("@SP", "D=M", "@LCL", "M=D");
+					writer.Write("@" + command.Arg1, "0;JMP");
+					writer.Write("(" + command.Arg1 + "$RETURN)");
+					break;
 				default:
 					throw new CompileException("Unknown command: " + command.Command, command.LineIdx, command.Line);
 			}
